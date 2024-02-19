@@ -108,7 +108,7 @@ class ScapeDataset(Dataset):
         vts_dirpath = Path(root_dir) / "corres"
 
         # Get all the files
-        ext = '.off'
+        ext = '.ply'
         self.verts_list = []
         self.faces_list = []
         self.vts_list = []
@@ -129,15 +129,15 @@ class ScapeDataset(Dataset):
             self.faces_list.append(faces)
 
             # vts
-            vts = np.loadtxt(str(vts_dirpath / f"{shape_name}.vts"), dtype=int) - 1
-            self.vts_list.append(vts)
-            if with_sym:
-                vts_sym = np.loadtxt(str(vts_dirpath / f"{shape_name}.sym.vts"), dtype=int) - 1
-                vts_sym_list.append(vts_sym)
+#           vts = np.loadtxt(str(vts_dirpath / f"{shape_name}.vts"), dtype=int) - 1
+#           self.vts_list.append(vts)
+#           if with_sym:
+#               vts_sym = np.loadtxt(str(vts_dirpath / f"{shape_name}.sym.vts"), dtype=int) - 1
+#               vts_sym_list.append(vts_sym)
 
-        # we store vts_sym also in vts_list (for saving)
-        if with_sym:
-            self.vts_list = [self.vts_list, vts_sym_list]
+#       # we store vts_sym also in vts_list (for saving)
+#       if with_sym:
+#           self.vts_list = [self.vts_list, vts_sym_list]
 
 
         # Precompute operators
@@ -243,7 +243,7 @@ class ScapeDataset(Dataset):
             "cevals": self.cevals_list[idx1],
             "spec_grad": self.spec_grad_list[idx1],
             #
-            "vts": self.vts_list[idx1],
+#           "vts": self.vts_list[idx1],
             "name": self.used_shapes[idx1],
         }
 
@@ -263,7 +263,7 @@ class ScapeDataset(Dataset):
             "cevals": self.cevals_list[idx2],
             "spec_grad": self.spec_grad_list[idx2],
             #
-            "vts": self.vts_list[idx2],
+#           "vts": self.vts_list[idx2],
             "name": self.used_shapes[idx2],
         }
 
@@ -273,7 +273,7 @@ class ScapeDataset(Dataset):
 
         # Compute fmap
         evec_1, evec_2 = shape1["evecs"][:, :self.n_fmap], shape2["evecs"][:, :self.n_fmap]
-        vts1, vts2 = self.vts_list[idx1], self.vts_list[idx2]
+#       vts1, vts2 = self.vts_list[idx1], self.vts_list[idx2]
 
         # C12_gt = torch.pinverse(evec_2[vts2]) @ evec_1[vts1]
         # C21_gt = torch.pinverse(evec_1[vts1]) @ evec_2[vts2]
