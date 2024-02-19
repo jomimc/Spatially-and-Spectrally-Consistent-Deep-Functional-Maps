@@ -226,5 +226,5 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="smal_r", help="Config file name")
 
     args = parser.parse_args()
-    cfg = yaml.safe_load(open(f"./config/{args.config}.yaml", "r"))
+    cfg = yaml.safe_load(open(f"./{args.config}.yaml", "r"))
     train_net(cfg)

@@ -2,9 +2,9 @@ import argparse
 import yaml
 import os
 import torch
-from scape_dataset_eval import ScapeDataset, shape_to_device
+from scape_dataset import ScapeDataset, shape_to_device
 # from dt4d_dataset import ScapeDataset, shape_to_device
-from model_eval import DQFMNet
+from model import DQFMNet
 #
 import numpy as np
 import scipy.io as sio
@@ -135,7 +135,8 @@ def eval_net(args, model_path, save_path):
         # prepare iteration data
 
         # do iteration
-        C_pred, Q_pred = dqfm_net(data)
+#       C_pred, Q_pred = dqfm_net(data)
+        C_pred = dqfm_net(data)[0]
         Phi1, Phi2 = data["shape1"]['evecs'], data["shape2"]['evecs']
 
         # check rank
@@ -176,12 +177,12 @@ if __name__ == "__main__":
 
     parser.add_argument("--config", type=str, default="smal_r", help="Config file name")
 
-    parser.add_argument("--model_path", type=str, default="data/trained_scape/ep_5.pth",
+    parser.add_argument("--model_path", type=str, default="data/trained_prot_new/ep_val_best.pth",
                          help="path to saved model")
     parser.add_argument("--save_path", type=str, default="data/results",
                         help="dir to save C_pred")
 
 
     args = parser.parse_args()
-    cfg = yaml.safe_load(open(f"./config/{args.config}.yaml", "r"))
+    cfg = yaml.safe_load(open(f"./{args.config}.yaml", "r"))
     eval_net(cfg, args.model_path, args.save_path)
