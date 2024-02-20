@@ -72,7 +72,7 @@ def eval_geodist(cfg, shape1, shape2, T):
     print('{}-->{}: {:.4f}'.format(shape1['name'], shape2['name'], np.mean(errC)))
     return errC
 
-def eval_net(args, model_path, save_path):
+def eval_net(args, model_path):
     if torch.cuda.is_available() and cfg["misc"]["cuda"]:
         device = torch.device(f'cuda:{cfg["misc"]["device"]}')
     else:
@@ -114,7 +114,7 @@ def eval_net(args, model_path, save_path):
 
     # define model
     dqfm_net = DQFMNet(cfg).to(device)
-    print(model_path)
+    model_path = os.path.join(cfg["dataset"]["root_dataset"], f'trained_{cfg["dataset"]["name"]}', model_path)
     dqfm_net.load_state_dict(torch.load(model_path, map_location=device))
     dqfm_net.eval()
 
@@ -149,6 +149,7 @@ def eval_net(args, model_path, save_path):
         name1, name2 = data["shape1"]["name"], data["shape2"]["name"]
 
 
+        save_path = os.path.join(cfg["dataset"]["root_dataset"], f'results_{cfg["dataset"]["name"]}')
         save_path_c = save_path + '/C/'
         if not os.path.exists(save_path_c):
             os.makedirs(save_path_c)
@@ -177,7 +178,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--config", type=str, default="smal_r", help="Config file name")
 
-    parser.add_argument("--model_path", type=str, default="data/trained_prot_new/ep_val_best.pth",
+    parser.add_argument("--model_path", type=str, default="ep_val_best.pth",
                          help="path to saved model")
     parser.add_argument("--save_path", type=str, default="data/results",
                         help="dir to save C_pred")
@@ -185,4 +186,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     cfg = yaml.safe_load(open(f"./{args.config}.yaml", "r"))
-    eval_net(cfg, args.model_path, args.save_path)
+    eval_net(cfg, args.model_path)
