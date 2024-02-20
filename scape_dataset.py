@@ -97,8 +97,6 @@ class ScapeDataset(Dataset):
         # define files and order
         shapes_split = "shapes_" + split
         self.used_shapes = sorted([x.stem for x in (Path(root_dir) / shapes_split).iterdir() if 'DS_' not in x.stem])
-        # if len(self.used_shapes) > 100:
-        #     self.used_shapes = self.used_shapes[:100]
 
         # set combinations
         self.combinations = list(permutations(range(len(self.used_shapes)), 2))
@@ -117,10 +115,8 @@ class ScapeDataset(Dataset):
 
         # Load the actual files
         for shape_name in tqdm(self.used_shapes):
-            #print("loading mesh " + str(shape_name))
 
             verts, faces = pp3d.read_mesh(str(mesh_dirpath / f"{shape_name}{ext}"))  # off obj
-            # verts, faces = pp3d.read_mesh(str(mesh_dirpath / f"{shape_name}.off"))
 
             # to torch
             verts = torch.tensor(np.ascontiguousarray(verts)).float()
@@ -275,8 +271,6 @@ class ScapeDataset(Dataset):
         evec_1, evec_2 = shape1["evecs"][:, :self.n_fmap], shape2["evecs"][:, :self.n_fmap]
 #       vts1, vts2 = self.vts_list[idx1], self.vts_list[idx2]
 
-        # C12_gt = torch.pinverse(evec_2[vts2]) @ evec_1[vts1]
-        # C21_gt = torch.pinverse(evec_1[vts1]) @ evec_2[vts2]
         C12_gt = torch.zeros_like(torch.pinverse(evec_2[:1000]) @ evec_1[:1000])
         C21_gt = torch.zeros_like(torch.pinverse(evec_1[:1000]) @ evec_2[:1000])
 
