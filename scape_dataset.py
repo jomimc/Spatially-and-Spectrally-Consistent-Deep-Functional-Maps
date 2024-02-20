@@ -89,7 +89,7 @@ class ScapeDataset(Dataset):
                     self.vts_list
                 ) = torch.load(load_cache)
 
-                self.combinations = list(permutations(range(len(self.verts_list)), 2))
+                self.combinations = self.get_combinations()
                 return
             print("  --> dataset not in cache, repopulating")
 
@@ -99,7 +99,7 @@ class ScapeDataset(Dataset):
         self.used_shapes = sorted([x.stem for x in (Path(root_dir) / shapes_split).iterdir() if 'DS_' not in x.stem])
 
         # set combinations
-        self.combinations = list(permutations(range(len(self.used_shapes)), 2))
+        self.combinations = self.get_combinations()
 
         #
         mesh_dirpath = Path(root_dir) / shapes_split
@@ -210,6 +210,21 @@ class ScapeDataset(Dataset):
                 ),
                 load_cache,
             )
+
+    def get_combinations(self):
+        names = ['_'.join(shape.split('_')[:2]) for shape in self.used_shapes]
+        names_uniq = set(names)
+        names_idx = {n:[] for n in names_uniq}
+        for i, n in enumerate(names):
+            print(i, n)
+            names_idx[n].append(i)
+
+        combinations = []
+        for idx in names_idx.values():
+            combinations.extend(list(permutations(idx, 2)))
+        return combinations
+            
+    
 
     def __len__(self):
         return len(self.combinations)
