@@ -1,5 +1,6 @@
 import argparse
 import yaml
+from pathlib import Path
 import os
 import torch
 from scape_dataset import ScapeDataset, shape_to_device
@@ -7,12 +8,17 @@ from scape_dataset import ScapeDataset, shape_to_device
 from model import DQFMNet
 #
 import numpy as np
+from pyFM.spectral.nn_utils import knn_query
 import scipy.io as sio
+from scipy.spatial.distance import cdist
+from scipy.special import softmax
 from tqdm import tqdm
 from utils import read_geodist, augment_batch, augment_batch_sym
 from Tools.utils import fMap2pMap, zo_fmap
 from diffusion_net.utils import toNP
 import torch.nn.functional as F
+
+import evaluate_map as EM
 
 def euclidean_dist(x, y):
     """
@@ -32,25 +38,43 @@ def euclidean_dist(x, y):
 
 # It is equal to Tij = knnsearch(j, i) in Matlab
 def knnsearch(x, y, alpha):
-    distance = euclidean_dist(x, y)
-    output = F.softmax(-alpha*distance, dim=-1)
-    # _, idx = distance.topk(k=k, dim=-1)
+    distance = cdist(x, y)
+    output = softmax(-alpha*distance, axis=-1)
     return output
 
 
 def convert_C(C12, Phi1, Phi2, alpha):
-    Phi1, Phi2 = Phi1[:, :80].unsqueeze(0), Phi2[:, :80].unsqueeze(0)
-    T21 = knnsearch(torch.bmm(Phi2, C12), Phi1, alpha)
-    C12_new = torch.bmm(torch.pinverse(Phi2), torch.bmm(T21, Phi1))
-
+    Phi1, Phi2 = Phi1[:, :50], Phi2[:, :50]
+    T21 = knnsearch(Phi2 @ C12, Phi1, alpha)
+    C12_new = np.linalg.pinv(Phi2) @ (T21 @ Phi1)
     return C12_new
 
 
-def eval_geodist(cfg, shape1, shape2, T):
-    path_geodist_shape2 = os.path.join(cfg['dataset']['root_geodist'], shape2['name']+'.mat')
-    MAT_s = sio.loadmat(path_geodist_shape2)
+def load_protein_geodist(cfg, shape_name):
+    prot_name = '_'.join(shape_name.split('_')[:2])
+    path_geo = os.path.join(cfg['dataset']['root_dataset'], "geodesic", f"{prot_name}.npy")
+    if os.path.exists(path_geo):
+        return np.load(path_geo)
 
-    G_s, SQ_s = read_geodist(MAT_s)
+    path_ply = os.path.join(cfg['dataset']['root_dataset'], cfg['dataset']['name'], "shapes_train", f"{prot_name}_0000.ply")
+    dist = EM.get_residue_distmat(path_ply)
+    np.save(path_geo, dist)
+    return dist
+
+
+def eval_geodist(cfg):
+
+    train_dataset = ScapeDataset(dataset_path, name=cfg["dataset"]["name"] + "-" + cfg["dataset"]["subset"],
+                                    k_eig=cfg["fmap"]["k_eig"],
+                                    n_fmap=cfg["fmap"]["n_fmap"], n_cfmap=cfg["fmap"]["n_cfmap"],
+                                    with_wks=with_wks, with_sym=cfg["dataset"]["with_sym"],
+                                    use_cache=True, op_cache_dir=op_cache_dir, train=True)
+
+    shape_names = train_dataset.used_shapes
+    prot_uniq = np.unique(['_'.join(s[:2]) for s in shape_names])
+
+    for i, (j, k) in tqdm(enumerate(train_dataset.combinations)):
+        geodist = load_protein_geodist(cfg, shape1)
 
     n_s = G_s.shape[0]
     # print(SQ_s[0])
@@ -109,6 +133,8 @@ def eval_net(args, model_path):
     # else:
     #     raise NotImplementedError("dataset not implemented!")
 
+    prot_geodist = {}
+
     # test loader
     test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=None, shuffle=False)
 
@@ -135,7 +161,6 @@ def eval_net(args, model_path):
         # prepare iteration data
 
         # do iteration
-#       C_pred, Q_pred = dqfm_net(data)
         C_pred = dqfm_net(data)[0]
         Phi1, Phi2 = data["shape1"]['evecs'], data["shape2"]['evecs']
 
@@ -170,6 +195,25 @@ def eval_net(args, model_path):
         Phi1 = toNP(shape1['evecs'])
         Phi1_dic = {'Phi': Phi1}
         sio.savemat(os.path.join(save_path_phi, filename_phi1), Phi1_dic)
+
+
+#   shape_names = train_dataset.used_shapes
+#   prot_names = {'_'.join(s.split('_')[:2]):s for s in shape_names}
+        prot_name = '_'.join(data['shape1']['name'].split('_')[:2])
+        if prot_name not in prot_geodist:
+            print(prot_name)
+            prot_geodist[prot_name] = load_protein_geodist(cfg, prot_name)
+
+        path_ply1 = os.path.join(cfg["dataset"]["root_dataset"], cfg["dataset"]["name"], "shapes_train", f"{data['shape1']['name']}.ply")
+        path_ply2 = os.path.join(cfg["dataset"]["root_dataset"], cfg["dataset"]["name"], "shapes_train", f"{data['shape2']['name']}.ply")
+
+        ri1 = EM.get_residx(path_ply1)
+        ri2 = EM.get_residx(path_ply2)
+#       p21 = convert_C(c12, Phi1, Phi2.cpu(), cfg['loss']['max_alpha'])
+#       p21 = p21.astype(int)
+        p21 = knn_query(Phi1[:,:50], Phi2.cpu()[:,:50] @ c12, k=1)
+#       print(p21)
+        mean_dist, gini = EM.evaluate_vertex_p2p_map(prot_geodist[prot_name], p21, ri1, ri2)
 
 
 

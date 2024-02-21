@@ -6,6 +6,9 @@ from multiprocessing import Pool
 import networkx as nx
 import numpy as np
 import pandas as pd
+import potpourri3d as pp3d
+from pygeodesic import geodesic
+from scipy.special import softmax
 import trimesh
 from trimesh.exchange.ply import load_ply as tri_load_ply
 
@@ -81,7 +84,15 @@ def geodesic_distance_matrix(mesh, idx='', weight='length'):
 
 def get_residue_distmat(path_ply):
     mesh, feat = load_ply_feat(path_ply)
+#   dist = pp3d.compute_distance_multisource(mesh.vertices, mesh.faces, range(len(mesh.vertices)))
     dist = geodesic_distance_matrix(mesh)
+
+#   N = len(mesh.vertices)
+#   idx = np.arange(N)
+#   i, j = [x.ravel() for x in np.meshgrid(idx, idx)]
+#   print(mesh.vertices.shape, mesh.faces.shape)
+#   geoalg = geodesic.PyGeodesicAlgorithmExact(mesh.vertices, mesh.faces)
+#   dist = geoalg.geodesicDistances(i,j)[0].reshape(N, N)
 
     residx = feat['residx'].astype(int)
     # Re-order the indices to start at zero
@@ -125,6 +136,7 @@ def evaluate_vertex_p2p_map(dist, p12, residx1, residx2):
     gini = get_gini_list(p12)
     print(f"Mean distance: {mean_dist:5.2f}")
     print(f"Gini coefficient: {gini:5.2f}")
+    return mean_dist, gini
 
 
 def get_residx(path_ply):
@@ -133,6 +145,8 @@ def get_residx(path_ply):
     # Re-order the indices to start at zero
     residx -= 1
     return residx
+
+
 
 
 
