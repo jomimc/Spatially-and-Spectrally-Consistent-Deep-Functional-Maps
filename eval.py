@@ -141,11 +141,11 @@ def eval_net(args, model_path):
     # define model
     dqfm_net = DQFMNet(cfg).to(device)
     model_path = os.path.join(cfg["dataset"]["root_dataset"], f'trained_{cfg["dataset"]["name"]}', model_path)
+#   model_path = "data/trained_prot3/ep_val_best.pth"
     dqfm_net.load_state_dict(torch.load(model_path, map_location=device))
     dqfm_net.eval()
 
-    to_save_list = []
-    errs = []
+    result = []
 
     for i, data in tqdm(enumerate(test_loader)):
         data = shape_to_device(data, device)
@@ -212,8 +212,12 @@ def eval_net(args, model_path):
 #       p21 = convert_C(c12, Phi1, Phi2.cpu(), cfg['loss']['max_alpha'])
 #       p21 = p21.astype(int)
         p21 = knn_query(Phi1[:,:50], Phi2.cpu()[:,:50] @ c12, k=1)
-#       print(p21)
-        mean_dist, gini = EM.evaluate_vertex_p2p_map(prot_geodist[prot_name], p21, ri1, ri2)
+        result.append(EM.evaluate_vertex_p2p_map(prot_geodist[prot_name], p21, ri1, ri2))
+
+    mean_diff, frac_zero, gini = np.array(result).T
+    np.save(os.path.join(save_path, "mean_diff.npy"), mean_diff)
+    np.save(os.path.join(save_path, "frac_zero.npy"), frac_zero)
+    np.save(os.path.join(save_path, "gini.npy"), gini)
 
 
 

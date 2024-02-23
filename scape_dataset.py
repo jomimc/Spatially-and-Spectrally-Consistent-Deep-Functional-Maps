@@ -222,6 +222,7 @@ class ScapeDataset(Dataset):
         combinations = []
         for idx in names_idx.values():
             combinations.extend(list(permutations(idx, 2)))
+#           combinations.extend([(i, j) for i, j in permutations(idx, 2) if i < j]))
         return combinations
             
     

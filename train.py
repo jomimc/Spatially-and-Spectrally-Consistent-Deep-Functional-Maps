@@ -51,6 +51,10 @@ def convert_C(Phi1, Phi2, A1, A2, alpha):
     return C12_new, C21_new
 
 
+def collate_inputs(batch):
+    return batch
+
+
 def train_net(cfg):
     if torch.cuda.is_available() and cfg["misc"]["cuda"]:
         device = torch.device(f'cuda:{cfg["misc"]["device"]}')
@@ -93,8 +97,6 @@ def train_net(cfg):
     # sampler_train = torch.utils.data.RandomSampler(train_dataset, replacement=True, num_samples=int(len(train_dataset) * 0.6))
 #     sampler_test = torch.utils.data.RandomSampler(test_dataset, replacement=True, num_samples=int(len(test_dataset) * 0.5))
     
-    # train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=None, sampler=sampler_train)
-#     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=None, sampler=sampler_test)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=None, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=None, shuffle=False)
 

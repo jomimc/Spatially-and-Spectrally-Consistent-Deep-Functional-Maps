@@ -132,11 +132,14 @@ def get_gini_list(seq):
 
 
 def evaluate_vertex_p2p_map(dist, p12, residx1, residx2):
-    mean_dist = np.mean(dist[residx2, residx1[p12]])
+    res_dist = dist[residx2, residx1[p12]]
+    mean_dist = np.mean(res_dist)
+    frac_zero = np.sum(res_dist == 0) / res_dist.size
     gini = get_gini_list(p12)
     print(f"Mean distance: {mean_dist:5.2f}")
+    print(f"Frac zero: {frac_zero:5.2f}")
     print(f"Gini coefficient: {gini:5.2f}")
-    return mean_dist, gini
+    return mean_dist, frac_zero, gini
 
 
 def get_residx(path_ply):
