@@ -14,7 +14,7 @@ class FrobeniusLoss(nn.Module):
 
 
 class DQFMLoss(nn.Module):
-    def __init__(self, w_gt=True, w_ortho=1, w_Qortho=1, w_bij=1, w_res=1, w_rank=-0.01):
+    def __init__(self, w_gt=True, w_ortho=1, w_bij=1, w_res=1, w_rank=-0.01, w_Qortho=1):
         super().__init__()
 
         # loss HP
@@ -35,7 +35,7 @@ class DQFMLoss(nn.Module):
         self.bij_loss = 0
         self.res_loss = 0
         self.rank_loss = 0
-    def forward(self, C12_gt, C21_gt, C12, C21, C12_new, C21_new, Q12, feat1, feat2, evecs_trans1, evecs_trans2):
+    def forward(self, C12_gt, C21_gt, C12, C21, C12_new, C21_new):
         loss = 0
 
         # gt loss (if we train on ground-truth then return directly)

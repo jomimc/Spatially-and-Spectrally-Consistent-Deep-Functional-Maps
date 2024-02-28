@@ -33,7 +33,7 @@ def euclidean_dist(x, y):
 
 # It is equal to Tij = knnsearch(j, i) in Matlab
 def knnsearch(x, y, alpha):
-    distance = euclidean_dist(x, y)
+    distance = torch.cdist(x.float(), y.float())
     output = F.softmax(-alpha*distance, dim=-1)
     # _, idx = distance.topk(k=k, dim=-1)
     return output
@@ -106,18 +106,16 @@ def train_net(cfg):
     optimizer = torch.optim.Adam(dqfm_net.parameters(), lr=lr, betas=(cfg["optimizer"]["b1"], cfg["optimizer"]["b2"]))
     criterion = DQFMLoss(w_gt=cfg["loss"]["w_gt"],
                          w_ortho=cfg["loss"]["w_ortho"],
-                         w_Qortho=cfg["loss"]["w_Qortho"],
                          w_bij=cfg["loss"]["w_bij"],
-                         w_res=cfg["loss"]["w_res"],
-                         w_rank=cfg["loss"]["w_rank"]).to(device)
+                         w_res=cfg["loss"]["w_res"]).to(device)
 
     # Training loop
     print("start training")
-    results = []
     total_iter = len(train_loader)
 
     alpha_list = np.linspace(cfg["loss"]["min_alpha"], cfg["loss"]["max_alpha"]+1, cfg["training"]["epochs"])
     eval_best_loss = 1e10
+    loss_list = []
     for epoch in range(1, cfg["training"]["epochs"] + 1):
         if epoch % cfg["optimizer"]["decay_iter"] == 0:
             lr *= cfg["optimizer"]["decay_factor"]
@@ -125,13 +123,11 @@ def train_net(cfg):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
 
-        record = {}
-        loss_sum, loss_gt_old_sum, loss_gt_sum, loss_ortho_sum, loss_bij_sum, loss_res_sum, loss_rank_sum = 0, 0, 0, 0, 0, 0, 0
+        loss_sum, loss_ortho_sum, loss_bij_sum, loss_res_sum = 0, 0, 0, 0
         iterations = 0
         alpha_i = alpha_list[epoch-1]
         dqfm_net.train()
         for i, data in tqdm(enumerate(train_loader)):
-
             data = shape_to_device(data, device)
             # data augmentation (if we have wks descriptors we use sym augmentation)
             if True and with_wks is None:
@@ -141,8 +137,6 @@ def train_net(cfg):
                 data = augment_batch(data, rot_x=0, rot_y=180, rot_z=0,
                                      std=0.01, noise_clip=0.05,
                                      scale_min=0.9, scale_max=1.1)
-            elif "with_sym" in cfg["dataset"] and cfg["dataset"]["with_sym"]:
-                data = augment_batch_sym(data, rand=False)  # always symmetrize
 
             # prepare iteration data
             C12_gt, C21_gt = data["C12_gt"].unsqueeze(0), data["C21_gt"].unsqueeze(0)
@@ -153,8 +147,9 @@ def train_net(cfg):
             C12_pred_new, C21_pred_new = convert_C(evecs1, evecs2, A1, A2, alpha_i)
             # C12_pred_new, C21_pred_new = C12_pred, C21_pred
 
-            loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res, loss_rank = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device),
-                                                                        Q_pred, feat1, feat2, evecs_trans1.unsqueeze(0), evecs_trans2.unsqueeze(0))
+#           loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res, loss_rank = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device),
+#                                                                       Q_pred, feat1, feat2, evecs_trans1.unsqueeze(0), evecs_trans2.unsqueeze(0))
+            loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device))
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -177,7 +172,6 @@ def train_net(cfg):
 
         with torch.no_grad():
             eval_loss = 0
-            eval_gt_loss = 0
             eval_ortho_loss = 0
             eval_res_loss = 0    
             val_iters = 0
@@ -193,25 +187,16 @@ def train_net(cfg):
                 C12_pred_new, C21_pred_new = convert_C(evecs1, evecs2, A1, A2, alpha_i)
                 # C12_pred_new, C21_pred_new = C12_pred, C21_pred
 
-                loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res, loss_rank = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device),
-                                                                        Q_pred, feat1, feat2, evecs_trans1.unsqueeze(0), evecs_trans2.unsqueeze(0))
+#               loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res, loss_rank = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device),
+#                                                                       Q_pred, feat1, feat2, evecs_trans1.unsqueeze(0), evecs_trans2.unsqueeze(0))
+                loss, loss_gt_old, loss_gt, loss_ortho, loss_bij, loss_res = criterion(C12_gt, C21_gt, C12_pred.to(device), C21_pred.to(device), C12_pred_new.to(device), C21_pred_new.to(device))
                 val_iters += 1
                 eval_loss += loss
-                eval_gt_loss += loss_gt_old
                 eval_ortho_loss += loss_ortho
                 eval_res_loss += loss_res 
-            print(f"epoch:{epoch}, val_loss:{eval_loss/val_iters}, val_gt_loss:{eval_gt_loss/val_iters}, val_ortho_loss:{eval_ortho_loss/val_iters}, val_res_loss:{eval_res_loss/val_iters}")
+            loss_list.append(np.array([eval_loss, eval_ortho_loss, eval_res_loss]) / val_iters)
+            print(f"epoch:{epoch}, val_loss:{eval_loss/val_iters}, val_ortho_loss:{eval_ortho_loss/val_iters}, val_res_loss:{eval_res_loss/val_iters}")
             
-
-
-        record['avg'] = round(float((loss_sum/iterations).cpu().detach().numpy()), 5)
-        record['gt_old'] = round(float((loss_gt_old_sum/iterations).cpu().detach().numpy()), 5)
-        record['gt'] = round(float((loss_gt_sum/iterations).cpu().detach().numpy()), 5)
-        record['ortho'] = round(float((loss_ortho_sum/iterations).cpu().detach().numpy()), 5)
-        record['bij'] = round(float((loss_bij_sum/iterations).cpu().detach().numpy()), 5)
-        record['res'] = round(float((loss_res_sum/iterations).cpu().detach().numpy()), 5)
-        record['rank'] = round(float((loss_rank_sum/iterations).cpu().detach().numpy()), 5)
-        results.append(record)
 
         # save model
         if (epoch + 1) % cfg["misc"]["checkpoint_interval"] == 0:
@@ -220,6 +205,9 @@ def train_net(cfg):
         if eval_loss <= eval_best_loss:
             eval_best_loss = eval_loss
             torch.save(dqfm_net.state_dict(), model_save_path.format('val_best'))
+
+        loss_save_path = os.path.join(base_path, f"data/{save_dir_name}/loss.csv")
+        np.savetxt(loss_save_path, np.array(loss_list), header='total_loss, ortho_loss, res_loss')
 
 
 if __name__ == "__main__":
