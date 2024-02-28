@@ -157,18 +157,15 @@ def train_net(cfg):
             # log
             iterations += 1
             loss_sum += loss
-            loss_gt_old_sum += loss_gt_old
-            loss_gt_sum += loss_gt
             loss_ortho_sum += loss_ortho
             loss_bij_sum += loss_bij
             loss_res_sum += loss_res
-            loss_rank_sum += loss_rank
 
             log_batch = (i + 1) % cfg["misc"]["log_interval"] == 0
             if log_batch:
-                print(f"epoch:{epoch}, loss:{loss_sum/iterations}, gt_old_loss:{loss_gt_old_sum/iterations}, gt_loss:{loss_gt_sum/iterations}, "
+                print(f"epoch:{epoch}, loss:{loss_sum/iterations}, "
                       f"ortho_loss:{loss_ortho_sum/iterations}, bij_loss:{loss_bij_sum/iterations}, "
-                      f"res_loss:{loss_res_sum/iterations}, rank_loss:{loss_rank_sum/iterations}")
+                      f"res_loss:{loss_res_sum/iterations}")
 
         with torch.no_grad():
             eval_loss = 0
